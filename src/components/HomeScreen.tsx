@@ -36,13 +36,8 @@ export const HomeScreen = () => {
     setInputText(transcript);
   }, []);
 
-  const handleRecordError = useCallback((error: Event) => {
-    console.error("Speech recognition error:", error);
-  }, []);
-
-  const { isRecording, isSpeechSupported, toggleRecording } = useRecord({
-    onTranscript: handleTranscript,
-    onError: handleRecordError,
+  const { isRecording, supported, start, stop } = useRecord({
+    onResult: handleTranscript,
   });
 
   const handleSend = useCallback(async () => {
@@ -348,8 +343,8 @@ export const HomeScreen = () => {
               }}
             >
               <IconButton
-                onClick={toggleRecording}
-                disabled={isLoading || isSpeechSupported !== true}
+                onClick={isRecording ? stop : start}
+                disabled={isLoading || !supported}
                 sx={{
                   bgcolor: isRecording ? "secondary.main" : "primary.main",
                   color: "white",
@@ -376,7 +371,7 @@ export const HomeScreen = () => {
                 placeholder={
                   isLoading
                     ? "Creating conversation..."
-                    : isSpeechSupported
+                    : supported
                       ? "Type your message or use the microphone..."
                       : "Type your message or ask a question..."
                 }
@@ -421,13 +416,20 @@ export const HomeScreen = () => {
               </IconButton>
             </Paper>
 
-            {isSpeechSupported === false && (
+            {supported === false && (
               <Box sx={{ mt: 1.5, textAlign: "center" }}>
                 <Typography variant="caption" color="error.main">
                   Speech recognition is not supported in your browser.
                 </Typography>
               </Box>
             )}
+            {/* {isSpeechSupported === false && (
+              <Box sx={{ mt: 1.5, textAlign: "center" }}>
+                <Typography variant="caption" color="error.main">
+                  Speech recognition is not supported in your browser.
+                </Typography>
+              </Box>
+            )} */}
 
             {isRecording && (
               <Box

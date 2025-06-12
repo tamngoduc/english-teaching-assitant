@@ -21,11 +21,8 @@ export const MessageInput = ({
 }) => {
   const { isDarkMode } = useTheme();
 
-  const { isRecording, isSpeechSupported, toggleRecording } = useRecord({
-    onTranscript: useCallback((transcript: string) => onChange(transcript), [onChange]),
-    onError: useCallback((error: Event) => {
-      console.error("Speech recognition error:", error);
-    }, []),
+  const { isRecording, supported, start, stop } = useRecord({
+    onResult: useCallback((transcript: string) => onChange(transcript), [onChange]),
   });
 
   const handleSend = useCallback(() => {
@@ -46,7 +43,7 @@ export const MessageInput = ({
 
   return (
     <Box sx={{ position: "relative", maxWidth: 768, mx: "auto" }}>
-      {!isSpeechSupported && (
+      {!supported && (
         <Box sx={{ mb: 1.5, textAlign: "center" }}>
           <Typography variant="caption" color="error.main">
             Speech recognition is not supported in your browser.
@@ -68,8 +65,8 @@ export const MessageInput = ({
         }}
       >
         <IconButton
-          onClick={toggleRecording}
-          disabled={disabled || isSpeechSupported !== true}
+          onClick={isRecording ? stop : start}
+          disabled={disabled || !supported}
           sx={{
             bgcolor: isRecording ? "secondary.main" : "primary.main",
             color: "white",
