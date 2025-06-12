@@ -5,7 +5,6 @@ import type {
   SpeechRecognition,
   SpeechRecognitionAlternative,
   SpeechRecognitionEvent,
-  SpeechRecognitionResult,
 } from "src/utils/speechTypes";
 
 export interface UseRecordOptions {
@@ -32,11 +31,11 @@ export const useRecord = (options: UseRecordOptions = {}): UseRecordReturn => {
   // Speech recognition event handlers
   const handleSpeechResult = useCallback(
     (event: SpeechRecognitionEvent) => {
-      const transcript = Array.from(event.results)
-        .map(
-          (result: SpeechRecognitionResult) => result[0] as SpeechRecognitionAlternative
-        )
-        .map((result: SpeechRecognitionAlternative) => result.transcript)
+      const results = Array.from(event.results);
+
+      // Get the complete transcript (both final and interim)
+      const transcript = results
+        .map(result => (result[0] as SpeechRecognitionAlternative).transcript)
         .join("");
 
       onTranscript?.(transcript);
@@ -61,20 +60,25 @@ export const useRecord = (options: UseRecordOptions = {}): UseRecordReturn => {
   // Initialize speech recognition
   useEffect(() => {
     const speechRecognition = createSpeechRecognition();
-    setRecognition(speechRecognition);
 
     if (speechRecognition) {
+      // Configure for continuous listening
+      speechRecognition.continuous = true;
+      speechRecognition.interimResults = true;
+      speechRecognition.lang = "en-US"; // Adjust as needed
+
+      // Set event handlers
       speechRecognition.onresult = handleSpeechResult;
       speechRecognition.onerror = handleSpeechError;
       speechRecognition.onend = handleSpeechEnd;
+
+      setRecognition(speechRecognition);
       setIsSpeechSupported(true);
     } else {
-      // Only set this to false after a short delay to avoid flashing the message on page load
       const timer = setTimeout(() => setIsSpeechSupported(false), 1000);
       return () => clearTimeout(timer);
     }
 
-    // Cleanup function to ensure speech recognition is stopped
     return () => {
       if (speechRecognition) {
         try {
@@ -84,10 +88,10 @@ export const useRecord = (options: UseRecordOptions = {}): UseRecordReturn => {
         }
       }
     };
-  }, [handleSpeechResult, handleSpeechError, handleSpeechEnd]); // Remove isRecording dependency
+  }, [handleSpeechResult, handleSpeechError, handleSpeechEnd]);
 
   const startRecording = useCallback(() => {
-    if (recognition) {
+    if (recognition && !isRecording) {
       try {
         recognition.start();
         setIsRecording(true);
@@ -95,14 +99,13 @@ export const useRecord = (options: UseRecordOptions = {}): UseRecordReturn => {
         console.error("Error starting speech recognition:", error);
       }
     }
-  }, [recognition]);
+  }, [recognition, isRecording]);
 
   const stopRecording = useCallback(() => {
-    if (recognition) {
+    if (recognition && isRecording) {
       recognition.stop();
-      setIsRecording(false);
     }
-  }, [recognition]);
+  }, [recognition, isRecording]);
 
   const toggleRecording = useCallback(() => {
     if (isRecording) {

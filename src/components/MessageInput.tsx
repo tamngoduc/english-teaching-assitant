@@ -22,12 +22,7 @@ export const MessageInput = ({
   const { isDarkMode } = useTheme();
 
   const { isRecording, isSpeechSupported, toggleRecording } = useRecord({
-    onTranscript: useCallback(
-      (transcript: string) => {
-        onChange(value + " " + transcript);
-      },
-      [onChange, value]
-    ),
+    onTranscript: useCallback((transcript: string) => onChange(transcript), [onChange]),
     onError: useCallback((error: Event) => {
       console.error("Speech recognition error:", error);
     }, []),

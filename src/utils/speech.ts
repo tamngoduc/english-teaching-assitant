@@ -17,6 +17,7 @@ export const createSpeechRecognition = () => {
     continuous: true,
     interimResults: true,
     lang: "en-US",
+    maxAlternatives: 1,
   });
   return recognition;
 };

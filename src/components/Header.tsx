@@ -3,17 +3,7 @@ import LightModeIcon from "@mui/icons-material/LightMode";
 import MenuIcon from "@mui/icons-material/Menu";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import RepeatOnIcon from "@mui/icons-material/RepeatOn";
-import VolumeOffIcon from "@mui/icons-material/VolumeOff";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
-import {
-  AppBar,
-  Box,
-  Icon,
-  IconButton,
-  Switch,
-  Toolbar,
-  Typography,
-} from "@mui/material";
+import { AppBar, Box, IconButton, Toolbar, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 import { useAudioAutoPlay } from "src/hooks/useAudio";
