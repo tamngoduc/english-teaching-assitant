@@ -38,5 +38,5 @@ export const useRecord = ({ onResult }: UseRecordOptions = {}) => {
     recognition?.stop();
   }, [recognition]);
 
-  return { isRecording, start, stop, supported: !!recognition };
+  return { isRecording, start, stop };
 };

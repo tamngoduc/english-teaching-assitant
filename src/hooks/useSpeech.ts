@@ -32,7 +32,10 @@ export const useSpeech = () => {
           clearSpeechState();
         },
         onError: e => {
-          console.error("Speech error for textId:", textId, e);
+          // Only log errors that aren't expected interruptions
+          if (e.error !== "interrupted") {
+            console.error("Speech error for textId:", textId, e);
+          }
           clearSpeechState();
         },
       });

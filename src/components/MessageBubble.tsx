@@ -1,10 +1,12 @@
 import type React from "react";
-import { useEffect } from "react";
+import { Children, cloneElement, isValidElement, useEffect } from "react";
 import PersonIcon from "@mui/icons-material/Person";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import StopIcon from "@mui/icons-material/Stop";
 import { Box, IconButton, Typography } from "@mui/material";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { useAudioAutoPlay } from "src/hooks/useAudio";
 import { useTheme } from "src/hooks/useTheme";
@@ -24,7 +26,7 @@ export const MessageBubble = ({
   clearNewAiMessageId: () => void;
 }) => {
   const { isDarkMode } = useTheme();
-  const { isPlaying, currentTextId, speak } = useSpeech();
+  const { isPlaying, currentTextId, speak, stop } = useSpeech();
   const { autoPlayTTS } = useAudioAutoPlay();
   const isUser = message.sender === "user";
 
@@ -124,6 +126,34 @@ export const MessageBubble = ({
     });
   };
 
+  // Recursively processes React nodes to make text clickable
+  const processNodes = (nodes: React.ReactNode): React.ReactNode => {
+    return Children.map(nodes, node => {
+      if (typeof node === "string") {
+        return renderClickableText(node);
+      }
+      if (
+        isValidElement(node) &&
+        node.props &&
+        typeof node.props === "object" &&
+        "children" in node.props
+      ) {
+        const children = (node.props as { children?: React.ReactNode }).children;
+        const newProps = { ...node.props, children: processNodes(children) };
+        return cloneElement(node, newProps);
+      }
+      return node;
+    });
+  };
+
+  // Custom components for ReactMarkdown to make text clickable
+  const customRenderers = {
+    p: ({ children }: { children?: React.ReactNode }) => <p>{processNodes(children)}</p>,
+    li: ({ children }: { children?: React.ReactNode }) => (
+      <li>{processNodes(children)}</li>
+    ),
+  };
+
   return (
     <Box
       sx={{
@@ -169,20 +199,34 @@ export const MessageBubble = ({
             border: isUser ? "none" : 1,
             borderColor: isDarkMode ? "#334155" : "#e2e8f0",
             position: "relative",
+            "& p": { margin: 0 },
           }}
         >
           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <Typography
+              component="div"
               variant="body1"
               sx={{ flex: 1, lineHeight: 1.6, fontSize: "0.95rem" }}
             >
-              {renderClickableText(message.content)}
+              {isUser ? (
+                renderClickableText(message.content)
+              ) : (
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={customRenderers}>
+                  {message.content}
+                </ReactMarkdown>
+              )}
             </Typography>
 
             {!isUser && (
               <IconButton
                 size="small"
-                onClick={() => speak(message.content, message.message_id)}
+                onClick={() => {
+                  if (isCurrentlyPlaying) {
+                    stop();
+                  } else {
+                    speak(message.content, message.message_id);
+                  }
+                }}
                 sx={{
                   color: isDarkMode ? "#94a3b8" : "#64748b",
                   "&:hover": {

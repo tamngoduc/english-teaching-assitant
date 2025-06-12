@@ -13,9 +13,25 @@ export const useConversations = (
   const [isLoading, setIsLoading] = useState(true);
 
   const cache = useRef<Map<number, Message[]>>(new Map());
+  const currentUserIdRef = useRef<number | null>(null);
+
+  // Clear cache and state when user changes
+  useEffect(() => {
+    if (user?.user_id !== currentUserIdRef.current) {
+      // User changed, clear all cached data
+      cache.current.clear();
+      setConversations([]);
+      setMessages([]);
+      currentUserIdRef.current = user?.user_id || null;
+    }
+  }, [user?.user_id]);
 
   const loadConversations = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setConversations([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -23,6 +39,7 @@ export const useConversations = (
       setConversations(list);
     } catch (err) {
       console.error("Failed to load conversations:", err);
+      setConversations([]);
     } finally {
       setIsLoading(false);
     }
@@ -30,7 +47,11 @@ export const useConversations = (
   }, [user?.user_id]);
 
   const loadMessages = useCallback(async () => {
-    if (!activeConversationId) return;
+    if (!activeConversationId || !user) {
+      setMessages([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -43,10 +64,11 @@ export const useConversations = (
       }
     } catch (err) {
       console.error("Failed to load messages:", err);
+      setMessages([]);
     } finally {
       setIsLoading(false);
     }
-  }, [activeConversationId]);
+  }, [activeConversationId, user]);
 
   useEffect(() => {
     loadConversations();

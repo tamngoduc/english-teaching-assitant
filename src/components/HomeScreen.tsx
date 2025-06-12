@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import MicIcon from "@mui/icons-material/Mic";
 import MicOffIcon from "@mui/icons-material/MicOff";
@@ -17,6 +17,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "src/hooks/useAuth";
+import { useAutoSend } from "src/hooks/useAutoSend";
 import { useConversations } from "src/hooks/useConversations";
 import { useRecord } from "src/hooks/useRecord";
 import { useTheme } from "src/hooks/useTheme";
@@ -29,22 +30,18 @@ export const HomeScreen = () => {
   const { createNewConversation } = useConversations(user);
   const navigate = useNavigate();
   const [inputText, setInputText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // Memoized callbacks for useRecord to prevent infinite loops
   const handleTranscript = useCallback((transcript: string) => {
     setInputText(transcript);
   }, []);
 
-  const { isRecording, supported, start, stop } = useRecord({
-    onResult: handleTranscript,
-  });
-
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !user?.user_id || isLoading) return;
+    if (!inputText.trim() || !user?.user_id || isSending) return;
 
     const messageText = inputText.trim();
-    setIsLoading(true);
+    setIsSending(true);
     setInputText(""); // Clear input immediately
 
     try {
@@ -81,32 +78,57 @@ export const HomeScreen = () => {
       // Restore input text on error
       setInputText(messageText);
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
     }
   }, [
     inputText,
     user?.user_id,
-    isLoading,
+    isSending,
     createNewConversation,
     navigate,
     setInputText,
   ]);
 
+  // Auto-send functionality
+  const { handleFocus, handleBlur, handleRecordingStop, clearAutoSendTimeout } =
+    useAutoSend({
+      text: inputText,
+      onSend: handleSend,
+      disabled: isSending,
+    });
+
+  // Update handleSend to include clearAutoSendTimeout in callback after it's defined
+  const wrappedHandleSend = useCallback(async () => {
+    clearAutoSendTimeout(); // Clear auto-send when manually sending
+    await handleSend();
+  }, [handleSend, clearAutoSendTimeout]);
+
+  const { isRecording, start, stop } = useRecord({
+    onResult: handleTranscript,
+  });
+
+  // Handle recording stop to trigger auto-send timer
+  useEffect(() => {
+    if (!isRecording) {
+      handleRecordingStop();
+    }
+  }, [isRecording, handleRecordingStop]);
+
   const handleKeyPress = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
-        handleSend();
+        wrappedHandleSend();
       }
     },
-    [handleSend]
+    [wrappedHandleSend]
   );
 
   const handleSuggestionClick = useCallback(
     async (suggestion: string) => {
-      if (!user?.user_id || isLoading) return;
+      if (!user?.user_id || isSending) return;
 
-      setIsLoading(true);
+      setIsSending(true);
 
       try {
         // Create a new conversation
@@ -141,10 +163,10 @@ export const HomeScreen = () => {
       } catch (error) {
         console.error("Error creating conversation:", error);
       } finally {
-        setIsLoading(false);
+        setIsSending(false);
       }
     },
-    [user?.user_id, isLoading, createNewConversation, navigate]
+    [user?.user_id, isSending, createNewConversation, navigate]
   );
 
   const suggestions = [
@@ -344,7 +366,7 @@ export const HomeScreen = () => {
             >
               <IconButton
                 onClick={isRecording ? stop : start}
-                disabled={isLoading || !supported}
+                disabled={isSending}
                 sx={{
                   bgcolor: isRecording ? "secondary.main" : "primary.main",
                   color: "white",
@@ -368,15 +390,15 @@ export const HomeScreen = () => {
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
                 placeholder={
-                  isLoading
+                  isSending
                     ? "Creating conversation..."
-                    : supported
-                      ? "Type your message or use the microphone..."
-                      : "Type your message or ask a question..."
+                    : "Type your message or use the microphone..."
                 }
                 variant="standard"
-                disabled={isLoading}
+                disabled={isSending}
                 sx={{
                   flex: 1,
                   "& .MuiInput-underline:before": { display: "none" },
@@ -395,17 +417,17 @@ export const HomeScreen = () => {
               />
 
               <IconButton
-                onClick={handleSend}
-                disabled={!inputText.trim() || isLoading}
+                onClick={wrappedHandleSend}
+                disabled={!inputText.trim() || isSending}
                 sx={{
                   bgcolor:
-                    inputText.trim() && !isLoading ? "primary.main" : "transparent",
-                  color: inputText.trim() && !isLoading ? "white" : "text.disabled",
+                    inputText.trim() && !isSending ? "primary.main" : "transparent",
+                  color: inputText.trim() && !isSending ? "white" : "text.disabled",
                   width: 48,
                   height: 48,
                   "&:hover": {
                     bgcolor:
-                      inputText.trim() && !isLoading ? "primary.dark" : "action.hover",
+                      inputText.trim() && !isSending ? "primary.dark" : "action.hover",
                   },
                   "&:disabled": {
                     color: "text.disabled",
@@ -415,21 +437,6 @@ export const HomeScreen = () => {
                 <SendIcon />
               </IconButton>
             </Paper>
-
-            {supported === false && (
-              <Box sx={{ mt: 1.5, textAlign: "center" }}>
-                <Typography variant="caption" color="error.main">
-                  Speech recognition is not supported in your browser.
-                </Typography>
-              </Box>
-            )}
-            {/* {isSpeechSupported === false && (
-              <Box sx={{ mt: 1.5, textAlign: "center" }}>
-                <Typography variant="caption" color="error.main">
-                  Speech recognition is not supported in your browser.
-                </Typography>
-              </Box>
-            )} */}
 
             {isRecording && (
               <Box
@@ -510,22 +517,22 @@ export const HomeScreen = () => {
                   label={suggestion}
                   variant="outlined"
                   onClick={() => handleSuggestionClick(suggestion)}
-                  disabled={isLoading}
+                  disabled={isSending}
                   sx={{
-                    cursor: isLoading ? "default" : "pointer",
+                    cursor: isSending ? "default" : "pointer",
                     fontSize: "0.875rem",
                     borderRadius: 3,
                     py: 0.5,
                     transition: "all 0.2s ease",
                     "&:hover": {
-                      bgcolor: !isLoading
+                      bgcolor: !isSending
                         ? isDarkMode
                           ? "#334155"
                           : "#f1f5f9"
                         : "transparent",
-                      borderColor: !isLoading ? "primary.main" : "action.disabled",
-                      transform: !isLoading ? "translateY(-1px)" : "none",
-                      boxShadow: !isLoading
+                      borderColor: !isSending ? "primary.main" : "action.disabled",
+                      transform: !isSending ? "translateY(-1px)" : "none",
+                      boxShadow: !isSending
                         ? isDarkMode
                           ? "0 4px 12px rgba(99, 102, 241, 0.2)"
                           : "0 4px 12px rgba(79, 70, 229, 0.15)"

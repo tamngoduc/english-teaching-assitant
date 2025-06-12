@@ -1,10 +1,11 @@
 import type React from "react";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import MicIcon from "@mui/icons-material/Mic";
 import MicOffIcon from "@mui/icons-material/MicOff";
 import SendIcon from "@mui/icons-material/Send";
 import { Box, IconButton, Paper, TextField, Typography } from "@mui/material";
 
+import { useAutoSend } from "src/hooks/useAutoSend";
 import { useRecord } from "src/hooks/useRecord";
 import { useTheme } from "src/hooks/useTheme";
 
@@ -21,15 +22,31 @@ export const MessageInput = ({
 }) => {
   const { isDarkMode } = useTheme();
 
-  const { isRecording, supported, start, stop } = useRecord({
+  // Auto-send functionality
+  const { handleFocus, handleBlur, handleRecordingStop, clearAutoSendTimeout } =
+    useAutoSend({
+      text: value,
+      onSend,
+      disabled,
+    });
+
+  const { isRecording, start, stop } = useRecord({
     onResult: useCallback((transcript: string) => onChange(transcript), [onChange]),
   });
 
+  // Handle recording stop to trigger auto-send timer
+  useEffect(() => {
+    if (!isRecording) {
+      handleRecordingStop();
+    }
+  }, [isRecording, handleRecordingStop]);
+
   const handleSend = useCallback(() => {
     if (value.trim() && !disabled) {
+      clearAutoSendTimeout(); // Clear auto-send when manually sending
       onSend(value);
     }
-  }, [value, disabled, onSend]);
+  }, [value, disabled, onSend, clearAutoSendTimeout]);
 
   const handleKeyPress = useCallback(
     (event: React.KeyboardEvent) => {
@@ -43,14 +60,6 @@ export const MessageInput = ({
 
   return (
     <Box sx={{ position: "relative", maxWidth: 768, mx: "auto" }}>
-      {!supported && (
-        <Box sx={{ mb: 1.5, textAlign: "center" }}>
-          <Typography variant="caption" color="error.main">
-            Speech recognition is not supported in your browser.
-          </Typography>
-        </Box>
-      )}
-
       <Paper
         elevation={0}
         sx={{
@@ -66,7 +75,7 @@ export const MessageInput = ({
       >
         <IconButton
           onClick={isRecording ? stop : start}
-          disabled={disabled || !supported}
+          disabled={disabled}
           sx={{
             bgcolor: isRecording ? "secondary.main" : "primary.main",
             color: "white",
@@ -90,6 +99,8 @@ export const MessageInput = ({
           value={value}
           onChange={e => onChange(e.target.value)}
           onKeyPress={handleKeyPress}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder="Type your message or use the microphone..."
           variant="standard"
           disabled={disabled}

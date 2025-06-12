@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Box } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "src/hooks/useAuth";
 import { useChat } from "src/hooks/useChat";
@@ -27,10 +27,12 @@ const useScrollToBottom = (dependency: unknown[]) => {
 export const ChatInterface = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const {
     isLoading: isConversationsLoading,
     activeMessages,
     addMessage,
+    conversations,
   } = useConversations(user, Number(conversationId));
   const { messagesEndRef } = useScrollToBottom([activeMessages]);
   const {
@@ -45,6 +47,22 @@ export const ChatInterface = () => {
     handleCloseVocabulary,
     clearNewAiMessageId,
   } = useChat(Number(conversationId), user, addMessage);
+
+  // Check if conversation exists and belongs to current user
+  useEffect(() => {
+    if (!isConversationsLoading && conversationId && user) {
+      const conversationExists = conversations.some(
+        conv =>
+          conv.conversation_id === Number(conversationId) &&
+          conv.user_id === user.user_id
+      );
+
+      if (!conversationExists) {
+        // Conversation doesn't exist or doesn't belong to this user
+        navigate("/", { replace: true });
+      }
+    }
+  }, [conversationId, conversations, user, isConversationsLoading, navigate]);
 
   // Add global keyboard shortcut to stop speech
   useEffect(() => {
