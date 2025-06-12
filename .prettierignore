@@ -1,0 +1,12 @@
+dist/
+build/
+node_modules/
+*.min.js
+.convex/
+coverage/
+.next/
+.cache/
+public/
+*.lock
+package-lock.json
+yarn.lock
