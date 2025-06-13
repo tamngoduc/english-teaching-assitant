@@ -27,5 +27,13 @@ export default defineConfig({
   preview: {
     port: 3001,
     open: true,
+    // Enable SPA fallback for preview
+    proxy: {
+      // Fallback to index.html for non-API routes
+      "^(?!/api).*": {
+        target: "http://localhost:3001",
+        rewrite: () => "/index.html",
+      },
+    },
   },
 });
